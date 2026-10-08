@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Budget Planner</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f5f7f6;color:#222}
+header{padding:20px 6%;background:#fff;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #ddd}
+header h2{margin:0;color:#176b4d}.container{max-width:1200px;margin:auto;padding:25px}
+select,button,input{padding:10px;border:1px solid #ccc;border-radius:8px}
+button{background:#176b4d;color:white;border:0;cursor:pointer}button:hover{opacity:.9}
+.hero{background:#176b4d;color:white;padding:25px;border-radius:15px;margin-bottom:20px}
+.stats{display:flex;gap:30px;flex-wrap:wrap}.stats h2{margin:5px 0}
+.grid{display:grid;grid-template-columns:280px 1fr;gap:20px}
+.card{background:white;padding:20px;border-radius:14px;box-shadow:0 2px 8px #0001;margin-bottom:20px}
+input,select{width:100%;margin:6px 0}
+form button{width:100%;margin-top:8px}
+.charts{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.chart{height:300px}
+table{width:100%;border-collapse:collapse}th,td{padding:10px;border-bottom:1px solid #ddd;text-align:left}
+.del{background:#d9534f;padding:6px 9px}
+.good{color:#17804f}.bad{color:#d9534f}
+@media(max-width:800px){.grid,.charts{grid-template-columns:1fr}.stats{gap:15px}}
+</style>
+</head>
+
+<body>
+
+<header>
+<h2>Ledger — Budget Planner</h2>
+<select id="month" onchange="render()"><option value="all">All Time</option></select>
+</header>
+
+<div class="container">
+
+<div class="hero">
+<h1>My Budget</h1>
+<div class="stats">
+<div>Income<h2 id="income">₹0</h2></div>
+<div>Expenses<h2 id="expense">₹0</h2></div>
+<div>Balance<h2 id="balance">₹0</h2></div>
+</div>
+</div>
+
+<div class="grid">
+
+<aside>
+<div class="card">
+<h3>Add Entry</h3>
+<form id="form">
+<input id="desc" placeholder="Description" required>
+<input id="amount" type="number" placeholder="Amount" required>
+<select id="type">
+<option>Expense</option><option>Income</option>
+</select>
+<select id="cat">
+<option>Housing</option><option>Food</option><option>Transport</option>
+<option>Utilities</option><option>Entertainment</option>
+<option>Health</option><option>Shopping</option><option>Other</option>
+</select>
+<input id="date" type="date" required>
+<button>Add Entry</button>
+</form>
+</div>
+
+<div class="card">
+<h3>Savings Goal</h3>
+<input id="goal" type="number" value="5000">
+<p id="saveText"></p>
+<button onclick="resetData()">Reset Demo Data</button>
+</div>
+</aside>
+
+<main>
+
+<div class="charts">
+<div class="card">
+<h3>Where it goes</h3>
+<div class="chart"><canvas id="pie"></canvas></div>
+</div>
+
+<div class="card">
+<h3>Monthly Expenses</h3>
+<div class="chart"><canvas id="bar"></canvas></div>
+</div>
+</div>
+
+<div class="card">
+<h3>Monthly Summary</h3>
+<p id="summary"></p>
+</div>
+
+<div class="card">
+<h3>Transactions</h3>
+<table>
+<thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Amount</th><th></th></tr></thead>
+<tbody id="list"></tbody>
+</table>
+</div>
+
+</main>
+</div>
+</div>
+
+<script>
+let data=JSON.parse(localStorage.data||'null')||[
+{id:1,date:'2026-05-05',desc:'Salary',type:'Income',cat:'Other',amount:30000},
+{id:2,date:'2026-05-08',desc:'Rent',type:'Expense',cat:'Housing',amount:9000},
+{id:3,date:'2026-05-10',desc:'Food',type:'Expense',cat:'Food',amount:2500},
+{id:4,date:'2026-06-05',desc:'Salary',type:'Income',cat:'Other',amount:30000},
+{id:5,date:'2026-06-12',desc:'Transport',type:'Expense',cat:'Transport',amount:1500},
+{id:6,date:'2026-07-05',desc:'Salary',type:'Income',cat:'Other',amount:32000},
+{id:7,date:'2026-07-15',desc:'Shopping',type:'Expense',cat:'Shopping',amount:3000},
+{id:8,date:'2026-08-05',desc:'Salary',type:'Income',cat:'Other',amount:32000},
+{id:9,date:'2026-08-18',desc:'Entertainment',type:'Expense',cat:'Entertainment',amount:2000},
+{id:10,date:'2026-09-05',desc:'Salary',type:'Income',cat:'Other',amount:35000},
+{id:11,date:'2026-09-15',desc:'Food',type:'Expense',cat:'Food',amount:2800}
+];
+
+let pie,bar;
+const $=id=>document.getElementById(id);
+const money=n=>'₹'+n.toLocaleString('en-IN');
+
+function save(){localStorage.data=JSON.stringify(data)}
+
+function months(){
+let m=[...new Set(data.map(x=>x.date.slice(0,7)))].sort();
+$('month').innerHTML='<option value="all">All Time</option>'+
+m.map(x=>`<option value="${x}">${x}</option>`).join('');
+}
+
+function render(){
+let m=$('month').value;
+let d=m==='all'?data:data.filter(x=>x.date.startsWith(m));
+let inc=d.filter(x=>x.type==='Income').reduce((s,x)=>s+x.amount,0);
+let exp=d.filter(x=>x.type==='Expense').reduce((s,x)=>s+x.amount,0);
+
+$('income').textContent=money(inc);
+$('expense').textContent=money(exp);
+$('balance').textContent=money(inc-exp);
+$('balance').className=inc-exp>=0?'good':'bad';
+
+$('list').innerHTML=d.sort((a,b)=>b.date.localeCompare(a.date)).map(x=>`
+<tr><td>${x.date}</td><td>${x.desc}</td><td>${x.cat}</td>
+<td class="${x.type==='Income'?'good':'bad'}">${x.type==='Income'?'+':'-'}${money(x.amount)}</td>
+<td><button class="del" onclick="del(${x.id})">×</button></td></tr>`).join('');
+
+$('summary').textContent=`You earned ${money(inc)}, spent ${money(exp)}, and saved ${money(inc-exp)}.`;
+
+let cats={};
+d.filter(x=>x.type==='Expense').forEach(x=>cats[x.cat]=(cats[x.cat]||0)+x.amount);
+
+if(pie)pie.destroy();
+pie=new Chart($('pie'),{
+type:'doughnut',
+data:{labels:Object.keys(cats),datasets:[{data:Object.values(cats)}]},
+options:{responsive:true,maintainAspectRatio:false}
+});
+
+let ms=[...new Set(data.map(x=>x.date.slice(0,7)))].sort().slice(-6);
+let vals=ms.map(m=>data.filter(x=>x.date.startsWith(m)&&x.type==='Expense')
+.reduce((s,x)=>s+x.amount,0));
+
+if(bar)bar.destroy();
+bar=new Chart($('bar'),{
+type:'bar',
+data:{labels:ms,datasets:[{label:'Expenses',data:vals}]},
+options:{responsive:true,maintainAspectRatio:false}
+});
+
+let goal=+$('goal').value||0;
+$('saveText').textContent=`Goal: ${money(goal)} | Current: ${money(Math.max(0,inc-exp))}`;
+}
+
+function del(id){
+data=data.filter(x=>x.id!==id);
+save();months();render();
+}
+
+$('form').onsubmit=e=>{
+e.preventDefault();
+data.push({
+id:Date.now(),
+desc:$('desc').value,
+amount:+$('amount').value,
+type:$('type').value,
+cat:$('cat').value,
+date:$('date').value
+});
+save();e.target.reset();months();render();
+};
+
+function resetData(){
+if(confirm('Reset all budget data?')){
+localStorage.removeItem('data');location.reload();
+}
+}
+
+$('date').value=new Date().toISOString().slice(0,10);
+months();render();
+</script>
+
+</body>
+</html>
